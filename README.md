@@ -7,6 +7,7 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that l
 - Node.js (v18+)
 - `@modelcontextprotocol/sdk` package
 - `ethers` package (only if using Web3 authentication)
+- `@x402/fetch` and `@x402/evm` packages 
 
 ## Authentication
 
@@ -87,7 +88,8 @@ Add the server to your MCP client configuration (e.g. Claude Desktop, Cursor, et
 
 ## Automatic Payments (x402)
 
-When using Web3 authentication, the server automatically handles micropayments for paid endpoints using the [x402 payment protocol](https://x402.org). No manual intervention is needed — payments are created and submitted on-chain transparently.
+The MCP and server automatically handle micropayments for paid endpoints using the [x402 payment protocol](https://x402.org). No manual intervention is needed, payments are created and submitted on-chain transparently.
+Make sure your agent's wallet has USDC on Base mainnet before calling paid endpoints.
 ## Tools
 
 The server exposes the following tools to AI agents:
