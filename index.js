@@ -1184,7 +1184,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       },
       {
         name: "get_kpis_coins",
-        description: "Get KPI (Key Performance Indicator) data for coins. Includes metrics like mindshare, market cap, TVL, etc. ⚡ Requires payment: $0.01 USDC (handled automatically with Web3 auth).",
+        description: "Get KPI (Key Performance Indicator) data for coins. Includes metrics like mindshare, market cap, TVL, etc.",
         inputSchema: {
           type: "object",
           properties: {

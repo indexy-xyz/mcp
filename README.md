@@ -14,18 +14,18 @@ The server supports three authentication modes, checked in this order:
 
 | Mode | Required Environment Variables |
 |------|-------------------------------|
-| **Web3 Private Key** (recommended for agents) | `INDEXY_WALLET_PRIVATE_KEY` |
-| **Web3 Keystore** (encrypted, more secure on disk) | `INDEXY_WALLET_KEYSTORE_PATH` + `INDEXY_WALLET_PASSWORD` |
 | **API Key** | `INDEXY_API_KEY` |
+| **Web3 Private Key** | `OWNER_WALLET_PRIVATE_KEY` |
+| **Web3 Keystore** | `OWNER_WALLET_KEYSTORE_PATH` + `OWNER_WALLET_PASSWORD` |
 
-Web3 modes require the wallet to be registered on an ERC-8004 registry.
+Web3 modes require the wallet to be registered on an ERC-8004 Agent Identity NFT registry.
 
 ### Optional Variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `INDEXY_API_URL` | `https://indexy.co` | API base URL |
-| `INDEXY_WALLET_CHAIN` | `base` | Blockchain for Web3 auth |
+| `OWNER_WALLET_CHAIN` | `base` | Blockchain for Web3 auth (`base` or `ethereum`) |
 
 ## Configuration
 
@@ -58,8 +58,8 @@ Add the server to your MCP client configuration (e.g. Claude Desktop, Cursor, et
       "args": ["/path/to/index.js"],
       "env": {
         "INDEXY_API_URL": "https://indexy.co",
-        "INDEXY_WALLET_PRIVATE_KEY": "0xabc123...",
-        "INDEXY_WALLET_CHAIN": "base"
+        "OWNER_WALLET_PRIVATE_KEY": "0xabc123...",
+        "OWNER_WALLET_CHAIN": "base"
       }
     }
   }
@@ -76,15 +76,18 @@ Add the server to your MCP client configuration (e.g. Claude Desktop, Cursor, et
       "args": ["/path/to/index.js"],
       "env": {
         "INDEXY_API_URL": "https://indexy.co",
-        "INDEXY_WALLET_KEYSTORE_PATH": "/path/to/keystore.json",
-        "INDEXY_WALLET_PASSWORD": "your-keystore-password",
-        "INDEXY_WALLET_CHAIN": "base"
+        "OWNER_WALLET_KEYSTORE_PATH": "/path/to/keystore.json",
+        "OWNER_WALLET_PASSWORD": "your-keystore-password",
+        "OWNER_WALLET_CHAIN": "base"
       }
     }
   }
 }
 ```
 
+## Automatic Payments (x402)
+
+When using Web3 authentication, the server automatically handles micropayments for paid endpoints using the [x402 payment protocol](https://x402.org). No manual intervention is needed — payments are created and submitted on-chain transparently.
 ## Tools
 
 The server exposes the following tools to AI agents:
@@ -118,9 +121,6 @@ The server exposes the following tools to AI agents:
 
 The server also provides embedded documentation as MCP resources:
 
-- `indexy://docs/overview` -- API overview and endpoint list
-- `indexy://docs/create-index` -- Guide to creating indices
-- `indexy://docs/update-index` -- Guide to rebalancing/updating indices
 - `indexy://docs/validation` -- Validation rules for names, weights, assets
 - `indexy://docs/public-endpoints` -- Public read-only endpoints
 - `indexy://docs/kpis` -- KPI metrics reference
@@ -131,9 +131,6 @@ The server also provides embedded documentation as MCP resources:
 
 When creating an index, you need:
 
-- **name** -- up to 40 characters
-- **selectedAssets** -- 1-50 assets, each with `contractAddress`, `network`, and `weight` (weights must sum to 100)
-- **methodologyAssetEligibility** -- criteria for token inclusion
 - **methodologyWeightCaps** -- weight distribution rules
 - **methodologyRebalancingCadence** -- rebalancing schedule
 
