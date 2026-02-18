@@ -6,12 +6,18 @@
  * to discover and use Indexy's Agent API for creating and managing cryptocurrency indices.
  *
  * Supports three authentication modes (checked in this order):
- *   1. Web3 Private Key — set INDEXY_WALLET_PRIVATE_KEY (simplest for agents)
- *   2. Web3 Keystore    — set INDEXY_WALLET_KEYSTORE_PATH + INDEXY_WALLET_PASSWORD
+ *   1. Web3 Private Key — set OWNER_WALLET_PRIVATE_KEY (simplest for agents)
+ *   2. Web3 Keystore    — set OWNER_WALLET_KEYSTORE_PATH + OWNER_WALLET_PASSWORD
  *   3. API Key          — set INDEXY_API_KEY
  *
  * Web3 modes require the wallet to be registered on an ERC-8004 registry.
  * At least one auth method must be configured.
+ *
+ * x402 PAYMENT SUPPORT:
+ * When using Web3 authentication, the MCP automatically handles x402 payments.
+ * Some endpoints require micropayments (e.g., $0.01 USDC for KPIs).
+ * Ensure your wallet has USDC on Base mainnet.
+ * Payments are handled automatically - no manual intervention needed!
  *
  * Usage:
  *   node mcp-server.js
@@ -38,12 +44,15 @@
  *       "args": ["/path/to/mcp-server.js"],
  *       "env": {
  *         "INDEXY_API_URL": "https://indexy.co",
- *         "INDEXY_WALLET_PRIVATE_KEY": "0xabc123...",
- *         "INDEXY_WALLET_CHAIN": "base"
+ *         "OWNER_WALLET_PRIVATE_KEY": "0xabc123...",
+ *         "OWNER_WALLET_CHAIN": "base"
  *       }
  *     }
  *   }
  * }
+ *
+ * NOTE: When using Web3 auth, ensure your wallet has USDC on Base for x402 payments.
+ * Some endpoints (like get_kpis_coins) require micropayments that are handled automatically.
  *
  * Configuration example — Web3 Keystore (encrypted, more secure on disk):
  * {
@@ -53,9 +62,9 @@
  *       "args": ["/path/to/mcp-server.js"],
  *       "env": {
  *         "INDEXY_API_URL": "https://indexy.co",
- *         "INDEXY_WALLET_KEYSTORE_PATH": "/path/to/keystore.json",
- *         "INDEXY_WALLET_PASSWORD": "your-keystore-password",
- *         "INDEXY_WALLET_CHAIN": "base"
+ *         "OWNER_WALLET_KEYSTORE_PATH": "/path/to/keystore.json",
+ *         "OWNER_WALLET_PASSWORD": "your-keystore-password",
+ *         "OWNER_WALLET_CHAIN": "base"
  *       }
  *     }
  *   }
@@ -71,21 +80,39 @@ const {
   ReadResourceRequestSchema,
 } = require("@modelcontextprotocol/sdk/types.js");
 
+// x402 payment protocol support (loaded lazily to avoid errors if not installed)
+let x402Modules = null;
+function loadX402Modules() {
+  if (!x402Modules) {
+    try {
+      const { ExactEvmScheme } = require("@x402/evm");
+      const { wrapFetchWithPaymentFromConfig } = require("@x402/fetch");
+      const { privateKeyToAccount } = require("viem/accounts");
+      x402Modules = { ExactEvmScheme, wrapFetchWithPaymentFromConfig, privateKeyToAccount };
+    } catch (error) {
+      throw new Error(`Failed to load x402 modules: ${error.message}`);
+    }
+  }
+  return x402Modules;
+}
+
 // Configuration
 const INDEXY_API_URL = process.env.INDEXY_API_URL || "https://indexy.co";
 const INDEXY_API_KEY = process.env.INDEXY_API_KEY;
 
-// Web3 wallet auth configuration
-const WALLET_PRIVATE_KEY = process.env.INDEXY_WALLET_PRIVATE_KEY;
-const WALLET_KEYSTORE_PATH = process.env.INDEXY_WALLET_KEYSTORE_PATH;
-const WALLET_PASSWORD = process.env.INDEXY_WALLET_PASSWORD;
-const WALLET_CHAIN = process.env.INDEXY_WALLET_CHAIN || "base";
+// Web3 wallet auth configuration (Owner's wallet = Agent Identity NFT holder)
+const WALLET_PRIVATE_KEY = process.env.OWNER_WALLET_PRIVATE_KEY;
+const WALLET_KEYSTORE_PATH = process.env.OWNER_WALLET_KEYSTORE_PATH;
+const WALLET_PASSWORD = process.env.OWNER_WALLET_PASSWORD;
+const WALLET_CHAIN = process.env.OWNER_WALLET_CHAIN || "base";
 
 let web3Wallet = null; // Loaded on startup if web3 is configured
+let x402Client = null; // x402 payment client
+let paidFetch = null; // Fetch wrapper with automatic x402 payments
 const AUTH_MODE = WALLET_PRIVATE_KEY ? "web3-pk" : WALLET_KEYSTORE_PATH ? "web3-keystore" : INDEXY_API_KEY ? "apikey" : null;
 
 if (!AUTH_MODE) {
-  console.error("[INDEXY-MCP] ERROR: Set one of: INDEXY_WALLET_PRIVATE_KEY, INDEXY_WALLET_KEYSTORE_PATH + INDEXY_WALLET_PASSWORD, or INDEXY_API_KEY");
+  console.error("[INDEXY-MCP] ERROR: Set one of: OWNER_WALLET_PRIVATE_KEY, OWNER_WALLET_KEYSTORE_PATH + OWNER_WALLET_PASSWORD, or INDEXY_API_KEY");
   process.exit(1);
 }
 
@@ -100,6 +127,27 @@ async function loadWeb3Wallet() {
   if (AUTH_MODE === "web3-pk") {
     web3Wallet = new ethers.Wallet(WALLET_PRIVATE_KEY);
     console.error(`[INDEXY-MCP] Wallet loaded from private key: ${web3Wallet.address} (chain: ${WALLET_CHAIN})`);
+
+    // Initialize x402 payment client for automatic payments
+    try {
+      const { ExactEvmScheme, wrapFetchWithPaymentFromConfig, privateKeyToAccount } = loadX402Modules();
+      const viemAccount = privateKeyToAccount(WALLET_PRIVATE_KEY);
+
+      paidFetch = wrapFetchWithPaymentFromConfig(fetch, {
+        schemes: [
+          {
+            network: "eip155:*", // Support all EVM chains (including Base 8453)
+            client: new ExactEvmScheme(viemAccount),
+          },
+        ],
+      });
+
+      console.error(`[INDEXY-MCP] x402 payment client initialized - automatic payments enabled`);
+    } catch (error) {
+      console.error(`[INDEXY-MCP] Warning: Could not initialize x402 client:`, error.message);
+      console.error(`[INDEXY-MCP] Continuing without x402 support - paid endpoints will fail`);
+    }
+
     return;
   }
 
@@ -115,6 +163,26 @@ async function loadWeb3Wallet() {
   console.error("[INDEXY-MCP] Decrypting wallet keystore...");
   web3Wallet = await ethers.Wallet.fromEncryptedJson(keystore, WALLET_PASSWORD || "");
   console.error(`[INDEXY-MCP] Wallet loaded from keystore: ${web3Wallet.address} (chain: ${WALLET_CHAIN})`);
+
+  // Initialize x402 payment client for automatic payments
+  try {
+    const { ExactEvmScheme, wrapFetchWithPaymentFromConfig, privateKeyToAccount } = loadX402Modules();
+    const viemAccount = privateKeyToAccount(web3Wallet.privateKey);
+
+    paidFetch = wrapFetchWithPaymentFromConfig(fetch, {
+      schemes: [
+        {
+          network: "eip155:*", // Support all EVM chains (including Base 8453)
+          client: new ExactEvmScheme(viemAccount),
+        },
+      ],
+    });
+
+    console.error(`[INDEXY-MCP] x402 payment client initialized - automatic payments enabled`);
+  } catch (error) {
+    console.error(`[INDEXY-MCP] Warning: Could not initialize x402 client:`, error.message);
+    console.error(`[INDEXY-MCP] Continuing without x402 support - paid endpoints will fail`);
+  }
 }
 
 /**
@@ -162,14 +230,42 @@ async function indexyApiRequest(endpoint, method = "GET", body = null) {
 
   console.error(`[INDEXY-MCP] [${AUTH_MODE}] ${method} ${url}`);
 
-  const response = await fetch(url, options);
-  const text = await response.text();
+  // Use paidFetch if available (handles x402 payments automatically)
+  // Otherwise fallback to regular fetch
+  const fetchFunction = paidFetch || fetch;
 
-  if (!response.ok) {
-    throw new Error(`API request failed (${response.status}): ${text}`);
+  // Add timeout to fetch options (60 seconds to handle Web3 auth + payment settlement)
+  // AbortController is used to implement timeout for fetch
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 seconds
+
+  const optionsWithTimeout = {
+    ...options,
+    signal: controller.signal
+  };
+
+  try {
+    const response = await fetchFunction(url, optionsWithTimeout);
+    clearTimeout(timeoutId);
+
+    const text = await response.text();
+
+    if (!response.ok) {
+      // Check if it's a 402 Payment Required that wasn't handled
+      if (response.status === 402) {
+        throw new Error(`Payment Required (HTTP 402): This endpoint requires payment. Please ensure your wallet has USDC on Base mainnet. Response: ${text}`);
+      }
+      throw new Error(`API request failed (${response.status}): ${text}`);
+    }
+
+    return text ? JSON.parse(text) : {};
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error.name === 'AbortError') {
+      throw new Error(`Request timeout after 60 seconds: ${method} ${url}`);
+    }
+    throw error;
   }
-
-  return text ? JSON.parse(text) : {};
 }
 
 // Create MCP server instance
@@ -278,7 +374,6 @@ Authorization: Bearer <your-api-key>
 - \`PUT /beta/profile\` - Update your profile (name/bio)
 
 ### Public Data
-- \`GET /beta/indexes\` - List all public indexes
 - \`GET /beta/kpis/coins\` - Get KPI data for coins
 - \`GET /beta/mindshare/coins\` - Get mindshare data for coins
 
@@ -621,6 +716,9 @@ KPIs (Key Performance Indicators) are calculated metrics for coins and indexes.
 
 \`GET /beta/kpis/coins\`
 
+**⚡ x402 Payment Required:** This endpoint costs $0.01 USDC on Base mainnet.
+Payments are handled automatically when using Web3 authentication.
+
 **Query Parameters:**
 - \`kpi_id\` (integer) - Filter by specific KPI
 - \`coin_id\` (integer) - Filter by specific coin
@@ -701,17 +799,16 @@ Similar structure to coins, but for index-level metrics.
 
 ## Common KPI Types
 
-- **Volatility** - Price volatility measure
-- **Bitcoin Strength** - Performance vs Bitcoin
-- **All-Time High** - Distance from ATH
-- **Mindshare** - Social metrics and mentions
+- **Mindshare** - Social metrics and market attention
+- **Market Cap** - Market capitalization metrics
+- **TVL** - Total Value Locked (for DeFi protocols)
 
 ## Use Cases
 
-- Analyze coin volatility trends over time
+- Analyze coin mindshare trends over time
 - Compare index performance metrics
-- Find high-volatility or low-volatility assets
-- Track Bitcoin correlation
+- Track market attention and social metrics
+- Monitor market cap changes
 `,
 
     "indexy://docs/mindshare": `# Mindshare Data
@@ -784,6 +881,8 @@ Higher values indicate more "buzz" around an asset.
 
 Manage your agent's profile information including name and bio.
 
+**IMPORTANT:** Only agents with a registry_id (ERC-8004 Agent Identity NFT holders) can update their profile.
+
 ## Get Profile
 
 \`GET /beta/profile\`
@@ -796,22 +895,30 @@ Get your current profile information.
   "success": true,
   "user": {
     "id": 123,
-    "username": "MyAgent",
+    "username": "agent-ba1da6e0",
     "bio": "An AI agent managing crypto indices",
-    "email": "user@example.com",
-    "privy_id": "did:privy:...",
-    "fid": 12345,
+    "email": null,
+    "privy_id": "8004:0xba1da6e097331d0622bc9e0069122e585428ddf1",
+    "fid": null,
+    "registry_id": 16627,
     "created_at": "2025-01-01T00:00:00.000Z",
     "updated_at": "2025-01-15T12:30:00.000Z"
   }
 }
 \`\`\`
 
+**Fields:**
+- **registry_id**: ERC-721 Token ID from the 8004 Agent Identity NFT registry (null for non-agents)
+- **username**: Auto-generated from wallet address (e.g., agent-ba1da6e0)
+- **privy_id**: Format: "8004:wallet_address" for agents
+
 ## Update Profile
 
 \`PUT /beta/profile\` or \`POST /beta/profile\`
 
 Update your agent's name and/or bio. At least one field must be provided.
+
+**REQUIRES:** User must have a registry_id (be an agent with NFT)
 
 **Request Body:**
 \`\`\`json
@@ -822,14 +929,15 @@ Update your agent's name and/or bio. At least one field must be provided.
 \`\`\`
 
 **Parameters:**
-- **name** (optional): Agent name (1-30 characters)
+- **name** (optional): Agent name (1-30 characters) - updates username field
 - **bio** (optional): Agent bio (max 250 characters)
 
 **Validation:**
-- Name: 1-30 characters, alphanumeric + basic punctuation (.,!?&()'-) 
+- Name: 1-30 characters, alphanumeric + basic punctuation (.,!?&()'-)
 - Bio: Max 250 characters, same character restrictions
 - Empty bio string converts to null
 - At least one field must be provided
+- Only agents (registry_id not null) can update
 
 **Response:**
 \`\`\`json
@@ -845,12 +953,22 @@ Update your agent's name and/or bio. At least one field must be provided.
 }
 \`\`\`
 
+**Error (403 Forbidden):**
+If user is not an agent (no registry_id):
+\`\`\`json
+{
+  "success": false,
+  "error": "Forbidden",
+  "message": "Only agent users can update their profile"
+}
+\`\`\`
+
 ## Use Cases
 
 - Set your agent's name when first deployed
 - Update your bio to reflect current strategy
 - Keep profile information current
-- Retrieve profile info for display or logging
+- Display registry_id to link to NFT on blockchain explorers
 `
   };
 
@@ -1004,6 +1122,11 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
               type: "string",
               description: "Update rebalancing cadence (optional)",
               maxLength: 2000
+            },
+            updateDescription: {
+              type: "string",
+              description: "Description or reason for this update/rebalance (optional). Explains why the change was made. Example: 'Rebalancing based on Q1 performance data'",
+              maxLength: 2000
             }
           },
           required: ["indexId"]
@@ -1046,41 +1169,6 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         }
       },
       {
-        name: "get_public_indexes",
-        description: "Get all public indices with optional filtering. This shows indices created by anyone.",
-        inputSchema: {
-          type: "object",
-          properties: {
-            featured: {
-              type: "boolean",
-              description: "Filter by featured status (optional)"
-            },
-            weights_type: {
-              type: "string",
-              enum: ["market_caps", "custom"],
-              description: "Filter by weights type (optional)"
-            },
-            creator_id: {
-              type: "number",
-              description: "Filter by creator ID (optional)"
-            },
-            limit: {
-              type: "number",
-              description: "Results per page (default: 20, max: 100)",
-              default: 20,
-              minimum: 1,
-              maximum: 100
-            },
-            offset: {
-              type: "number",
-              description: "Pagination offset (default: 0)",
-              default: 0,
-              minimum: 0
-            }
-          }
-        }
-      },
-      {
         name: "get_public_index",
         description: "Get details of any public index by ID (not restricted to your own indices)",
         inputSchema: {
@@ -1096,7 +1184,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       },
       {
         name: "get_kpis_coins",
-        description: "Get KPI (Key Performance Indicator) data for coins. Includes metrics like volatility, Bitcoin strength, etc.",
+        description: "Get KPI (Key Performance Indicator) data for coins. Includes metrics like mindshare, market cap, TVL, etc. ⚡ Requires payment: $0.01 USDC (handled automatically with Web3 auth).",
         inputSchema: {
           type: "object",
           properties: {
@@ -1145,19 +1233,10 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         inputSchema: {
           type: "object",
           properties: {
-            coin_id: {
-              type: "number",
-              description: "Filter by specific coin ID (optional)"
-            },
-            time_range: {
-              type: "string",
-              enum: ["24H", "1W", "1M", "3M", "6M", "1Y", "overall"],
-              description: "Time range for the data (optional)"
-            },
             limit: {
               type: "number",
-              description: "Results per page (default: 100)",
-              default: 100,
+              description: "Results per page (default: 20, max: 100)",
+              default: 20,
               minimum: 1,
               maximum: 100
             },
@@ -1166,11 +1245,6 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
               description: "Pagination offset (default: 0)",
               default: 0,
               minimum: 0
-            },
-            latest_only: {
-              type: "boolean",
-              description: "Only return latest data (default: true)",
-              default: true
             }
           }
         }
@@ -1277,29 +1351,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         };
       }
 
-      case "get_public_indexes": {
-        const { featured, weights_type, creator_id, limit = 20, offset = 0 } = args;
-        const params = new URLSearchParams();
-        if (featured !== undefined) params.append('featured', featured);
-        if (weights_type) params.append('weights_type', weights_type);
-        if (creator_id) params.append('creator_id', creator_id);
-        params.append('limit', limit);
-        params.append('offset', offset);
-
-        const result = await indexyApiRequest(
-          `/beta/indexes?${params.toString()}`,
-          "GET"
-        );
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify(result, null, 2)
-            }
-          ]
-        };
-      }
-
       case "get_public_index": {
         const { indexId } = args;
         const result = await indexyApiRequest(
@@ -1342,13 +1393,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case "get_mindshare_coins": {
-        const { coin_id, time_range, limit = 100, offset = 0, latest_only = true } = args;
+        const { limit = 20, offset = 0 } = args;
         const params = new URLSearchParams();
-        if (coin_id) params.append('coin_id', coin_id);
-        if (time_range) params.append('time_range', time_range);
         params.append('limit', limit);
         params.append('offset', offset);
-        params.append('latest_only', latest_only);
 
         const result = await indexyApiRequest(
           `/beta/mindshare/coins?${params.toString()}`,

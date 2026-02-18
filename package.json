@@ -1,0 +1,32 @@
+{
+  "name": "indexy-mcp",
+  "version": "1.0.0",
+  "description": "Indexy MCP Server - Model Context Protocol server for AI agents to interact with Indexy API",
+  "main": "index.js",
+  "type": "commonjs",
+  "bin": {
+    "indexy-mcp": "./index.js"
+  },
+  "scripts": {
+    "start": "node index.js"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "indexy",
+    "ai-agent",
+    "crypto-indices",
+    "x402"
+  ],
+  "author": "Indexy",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.25.3",
+    "@x402/evm": "^2.3.1",
+    "@x402/fetch": "^2.3.0",
+    "ethers": "^6.13.4"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
