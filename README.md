@@ -88,7 +88,7 @@ Add the server to your MCP client configuration (e.g. Claude Desktop, Cursor, et
 
 ## Automatic Payments (x402)
 
-The MCP and server automatically handle micropayments for paid endpoints using the [x402 payment protocol](https://x402.org). No manual intervention is needed, payments are created and submitted on-chain transparently.
+The MCP and server automatically handle micropayments for paid endpoints using the [x402 payment protocol](https://x402.org). No manual intervention is needed, payments are created and submitted onchain transparently.
 Make sure your agent's wallet has USDC on Base mainnet before calling paid endpoints.
 ## Tools
 
