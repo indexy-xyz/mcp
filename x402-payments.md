@@ -20,7 +20,8 @@ The x402 client intercepts this response, signs and submits an on-chain payment 
 
 | Endpoint | Cost | Notes |
 |----------|------|-------|
-| `GET /beta/kpis/coins` | ~$0.01 USDC | Paid per request |
+| `POST /beta/indexes/agent` | 1.0000 USDC | First 3 indices per agent are free; charged from the 4th onwards |
+| `GET /beta/indexes/:indexId` | 0.5000 USDC | Free for the index owner; charged for any other caller |
 
 More endpoints may be added over time. If you receive a 402 from any endpoint, the same setup applies.
 
@@ -69,8 +70,8 @@ x402 payments are **only available with Web3 auth**. API Key mode does not suppo
 Your wallet needs USDC on **Base mainnet** (chain ID `8453`).
 
 - Get USDC on Base via [Coinbase](https://www.coinbase.com), [Bridge](https://bridge.xyz), or any Base-compatible DEX
-- Minimum recommended balance: **$1–5 USDC** to cover multiple requests
-- Each `get_kpis_coins` call costs approximately **$0.01 USDC**
+- Minimum recommended balance: **$5–10 USDC** to cover multiple operations
+- Costs per operation: **1.00 USDC** to create an index (after the first 3 free ones), **0.50 USDC** to fetch a public index you don't own
 
 ### 3. Install required packages
 
@@ -165,7 +166,7 @@ The MCP uses a 60-second timeout to allow for on-chain payment settlement. If yo
 
 The error will read:
 ```
-Request timeout after 60 seconds: GET https://indexy.co/beta/kpis/coins
+Request timeout after 60 seconds: POST https://indexy.co/beta/indexes/agent
 ```
 
 Wait and retry. No duplicate payment will be submitted.
@@ -195,7 +196,19 @@ const paidFetch = wrapFetchWithPaymentFromConfig(fetch, {
 });
 
 // Use paidFetch exactly like fetch — 402s are handled automatically
-const res = await paidFetch("https://indexy.co/beta/kpis/coins", {
+
+// Example 1: create an index (1.00 USDC, first 3 are free)
+const res = await paidFetch("https://indexy.co/beta/indexes/agent", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    Authorization: "Bearer YOUR_API_KEY",
+  },
+  body: JSON.stringify({ name: "My Index", selectedAssets: [...], ... }),
+});
+
+// Example 2: fetch a public index you don't own (0.50 USDC)
+const res2 = await paidFetch("https://indexy.co/beta/indexes/42", {
   headers: {
     Authorization: "Bearer YOUR_API_KEY",
   },
@@ -208,21 +221,21 @@ console.log(data);
 ### How the payment flow works under the hood
 
 ```
-Client                        Server
-  |                              |
-  |-- GET /beta/kpis/coins ----> |
-  |                              |
-  |<-- 402 Payment Required ---- |
-  |    X-Payment-Requirements:   |
-  |    { amount, token, chain }  |
-  |                              |
-  | [x402 client signs tx]       |
-  | [submits payment on Base]    |
-  |                              |
-  |-- GET /beta/kpis/coins ----> |
-  |   X-Payment: <proof>         |
-  |                              |
-  |<-- 200 OK + data ----------- |
+Client                              Server
+  |                                    |
+  |-- POST /beta/indexes/agent ------> |
+  |                                    |
+  |<-- 402 Payment Required ---------- |
+  |    X-Payment-Requirements:         |
+  |    { amount: 1.00 USDC, chain: 8453, token: 0x833...}
+  |                                    |
+  | [x402 client signs tx]             |
+  | [submits payment on Base]          |
+  |                                    |
+  |-- POST /beta/indexes/agent ------> |
+  |   X-Payment: <proof>               |
+  |                                    |
+  |<-- 200 OK + index data ----------- |
 ```
 
 ---
