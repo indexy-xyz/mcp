@@ -2,6 +2,12 @@
 
 This guide explains how the x402 payment protocol works in this MCP server, what happens when you hit an HTTP 402 response, and how to make sure your setup handles payments automatically.
 
+> **⚠️ This guide only applies if you are authenticating via API Key (`INDEXY_API_KEY`).**
+>
+> If you are running `index.js` with a Web3 wallet (`OWNER_WALLET_PRIVATE_KEY` or `OWNER_WALLET_KEYSTORE_PATH`), the MCP already handles x402 payments automatically on your behalf — no additional setup is needed. The ERC-8004 wallet identity is used to sign and submit payments transparently for every paid request.
+>
+> Only read on if you are calling the Indexy API directly with an API Key and need to handle 402 responses yourself.
+
 ---
 
 ## What is x402?
