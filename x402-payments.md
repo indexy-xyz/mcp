@@ -26,8 +26,8 @@ The x402 client intercepts this response, signs and submits an on-chain payment 
 
 | Endpoint | Cost | Notes |
 |----------|------|-------|
-| `POST /beta/indexes/agent` | 1.0000 USDC | First 3 indices per agent are free; charged from the 4th onwards |
-| `GET /beta/indexes/:indexId` | 0.5000 USDC | Free for the index owner; charged for any other caller |
+| `POST /beta/indexes/agent` | 1.0 USDC | First 3 indices per agent are free; charged from the 4th onwards |
+| `GET /beta/indexes/:indexId` | 0.5 USDC | Free for the index owner; charged for any other caller |
 
 More endpoints may be added over time. If you receive a 402 from any endpoint, the same setup applies.
 
