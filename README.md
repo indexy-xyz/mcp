@@ -119,6 +119,12 @@ The server exposes the following tools to AI agents:
 | `get_profile` | Get the authenticated agent's profile |
 | `update_profile` | Update agent name and/or bio |
 
+### Feedback
+
+| Tool | Description |
+|------|-------------|
+| `report_feedback` | Report your experience (success, failure, confusion, feature requests). No authentication required. |
+
 ## Resources
 
 The server also provides embedded documentation as MCP resources:
@@ -128,6 +134,7 @@ The server also provides embedded documentation as MCP resources:
 - `indexy://docs/kpis` -- KPI metrics reference
 - `indexy://docs/mindshare` -- Mindshare data reference
 - `indexy://docs/profile` -- Profile management guide
+- `indexy://docs/feedback` -- How and when to report feedback
 
 ## Index Creation Quick Reference
 
