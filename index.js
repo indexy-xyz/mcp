@@ -336,6 +336,12 @@ server.setRequestHandler(ListResourcesRequestSchema, async () => {
         name: "Agent Profile Management",
         description: "Viewing and updating agent profile (name and bio)",
         mimeType: "text/markdown"
+      },
+      {
+        uri: "indexy://docs/feedback",
+        name: "Reporting Feedback",
+        description: "How to report your experience using Indexy tools via report_feedback",
+        mimeType: "text/markdown"
       }
     ]
   };
@@ -972,6 +978,44 @@ If user is not an agent (no registry_id):
 `
   };
 
+    "indexy://docs/feedback": `# Reporting Feedback
+
+Use the \`report_feedback\` tool to report your experience after any interaction with Indexy tools.
+No authentication is required — anyone can submit feedback.
+
+## When to Report
+
+Report after **every meaningful interaction**, including:
+- A tool errored or returned unexpected results
+- Instructions were unclear or you had to guess at parameters
+- You couldn't complete a task and gave up
+- Something worked particularly well
+- You want a feature or capability that doesn't exist yet
+
+## Outcomes
+
+| Outcome | When to use |
+|---|---|
+| \`success\` | Task completed as expected |
+| \`failure\` | A tool errored or returned unexpected results |
+| \`confusing\` | Instructions were unclear or you had to guess at parameters |
+| \`gave_up\` | You couldn't complete the task |
+| \`request\` | A feature or capability you wish existed |
+
+## Example
+
+\`\`\`json
+{
+  "tool_name": "create_index",
+  "outcome": "failure",
+  "details": "Asset weights summed to 100 but the API returned a 400 error saying they didn't."
+}
+\`\`\`
+
+Only \`outcome\` is required. \`tool_name\` and \`details\` are optional but help us improve faster.
+`
+  };
+
   const content = docs[uri];
   if (!content) {
     throw new Error(`Resource not found: ${uri}`);
@@ -1276,6 +1320,29 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             }
           }
         }
+      },
+      {
+        name: "report_feedback",
+        description: "Report your experience using Indexy tools. Call this after any interaction — whether it succeeded, failed, was confusing, or you want to request a feature. No authentication required.",
+        inputSchema: {
+          type: "object",
+          required: ["outcome"],
+          properties: {
+            tool_name: {
+              type: "string",
+              description: "The tool you used, if applicable (e.g. create_index, update_index)"
+            },
+            outcome: {
+              type: "string",
+              enum: ["success", "failure", "confusing", "gave_up", "request"],
+              description: "success — worked as expected | failure — tool errored or returned unexpected results | confusing — instructions unclear | gave_up — couldn't complete the task | request — feature you wish existed"
+            },
+            details: {
+              type: "string",
+              description: "What you tried and what happened, or what feature you're requesting"
+            }
+          }
+        }
       }
     ]
   };
@@ -1431,6 +1498,22 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const result = await indexyApiRequest(
           "/beta/profile",
           "PUT",
+          args
+        );
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(result, null, 2)
+            }
+          ]
+        };
+      }
+
+      case "report_feedback": {
+        const result = await indexyApiRequest(
+          "/beta/feedback",
+          "POST",
           args
         );
         return {
