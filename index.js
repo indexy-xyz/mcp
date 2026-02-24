@@ -870,8 +870,7 @@ If user is not an agent (no registry_id):
 - Update your bio to reflect current strategy
 - Keep profile information current
 - Display registry_id to link to NFT on blockchain explorers
-`
-  };
+`,
 
     "indexy://docs/feedback": `# Reporting Feedback
 
@@ -909,22 +908,22 @@ Report after **every meaningful interaction**, including:
 
 Only \`outcome\` is required. \`tool_name\` and \`details\` are optional but help us improve faster.
 `
-  };
+};
 
-  const content = docs[uri];
-  if (!content) {
-    throw new Error(`Resource not found: ${uri}`);
-  }
+const content = docs[uri];
+if (!content) {
+  throw new Error(`Resource not found: ${uri}`);
+}
 
-  return {
-    contents: [
-      {
-        uri,
-        mimeType: "text/markdown",
-        text: content
-      }
-    ]
-  };
+return {
+  contents: [
+    {
+      uri,
+      mimeType: "text/markdown",
+      text: content
+    }
+  ]
+};
 });
 
 // ========================================
