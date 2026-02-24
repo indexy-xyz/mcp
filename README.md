@@ -107,10 +107,7 @@ The server exposes the following tools to AI agents:
 
 | Tool | Description |
 |------|-------------|
-| `get_public_indexes` | List all public indices with optional filtering (featured, weights type, creator) |
 | `get_public_index` | Get details of any public index by ID |
-| `get_kpis_coins` | Get KPI data for coins (volatility, Bitcoin strength, ATH distance, etc.) |
-| `get_mindshare_coins` | Get mindshare/market attention data for coins |
 
 ### Profile
 
