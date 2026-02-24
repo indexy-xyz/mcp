@@ -52,7 +52,7 @@
  * }
  *
  * NOTE: When using Web3 auth, ensure your wallet has USDC on Base for x402 payments.
- * Some endpoints (like get_kpis_coins) require micropayments that are handled automatically.
+ * Some endpoints require micropayments that are handled automatically.
  *
  * Configuration example — Web3 Keystore (encrypted, more secure on disk):
  * {
@@ -380,8 +380,10 @@ Authorization: Bearer <your-api-key>
 - \`PUT /beta/profile\` - Update your profile (name/bio)
 
 ### Public Data
-- \`GET /beta/kpis/coins\` - Get KPI data for coins
-- \`GET /beta/mindshare/coins\` - Get mindshare data for coins
+- \`GET /beta/highlights/indexes\` - Get highlighted/featured indexes
+- \`GET /beta/kpis/indexes\` - Get KPI data for indexes
+- \`GET /beta/mindshare/indexes\` - Get mindshare data for indexes
+- \`GET /beta/mindshare/chains\` - Get mindshare data for blockchains
 
 ## Index Category
 
@@ -701,14 +703,12 @@ Get highlighted/featured indices.
 ## KPIs
 
 \`GET /beta/kpis/indexes\` - KPI data for indexes
-\`GET /beta/kpis/coins\` - KPI data for coins
 
 See separate KPIs documentation for details.
 
 ## Mindshare
 
 \`GET /beta/mindshare/indexes\` - Mindshare scores for indexes
-\`GET /beta/mindshare/coins\` - Mindshare scores for coins
 \`GET /beta/mindshare/chains\` - Mindshare scores for blockchains
 
 See separate Mindshare documentation for details.
@@ -716,92 +716,20 @@ See separate Mindshare documentation for details.
 
     "indexy://docs/kpis": `# KPIs Reference
 
-KPIs (Key Performance Indicators) are calculated metrics for coins and indexes.
-
-## Get KPIs for Coins
-
-\`GET /beta/kpis/coins\`
-
-**⚡ x402 Payment Required:** This endpoint costs $0.01 USDC on Base mainnet.
-Payments are handled automatically when using Web3 authentication.
-
-**Query Parameters:**
-- \`kpi_id\` (integer) - Filter by specific KPI
-- \`coin_id\` (integer) - Filter by specific coin
-- \`time_range\` (enum) - '24H', '1W', '1M', '3M', '6M', '1Y', 'overall'
-- \`limit\` (integer, max 100) - Results per page (default: 100)
-- \`offset\` (integer) - Pagination offset
-- \`latest_only\` (boolean) - Only latest data (default: true)
-- \`group_by_coin\` (boolean) - Group by coin (default: false)
-
-**Example Response (flat structure):**
-\`\`\`json
-{
-  "success": true,
-  "kpi_coins": [
-    {
-      "id": 123,
-      "kpi_id": 1,
-      "kpi_name": "Volatility",
-      "coin_id": 1,
-      "coin_name": "Bitcoin",
-      "coin_symbol": "BTC",
-      "value": 45.2,
-      "time_range": "24H",
-      "date": "2026-01-30T...",
-      "chains": [
-        {
-          "id": 1,
-          "name": "ethereum",
-          "smart_contract": "0x..."
-        }
-      ]
-    }
-  ],
-  "pagination": { /* ... */ },
-  "metadata": {
-    "last_updated": "...",
-    "total_kpis": 4,
-    "total_coins": 500
-  }
-}
-\`\`\`
-
-**Example Response (grouped by coin):**
-\`\`\`json
-{
-  "success": true,
-  "coins": [
-    {
-      "coin_id": 1,
-      "coin_name": "Bitcoin",
-      "coin_symbol": "BTC",
-      "chains": [ /* ... */ ],
-      "kpis": [
-        {
-          "kpi_id": 1,
-          "kpi_name": "Volatility",
-          "value": 45.2,
-          "time_range": "24H",
-          "date": "..."
-        }
-      ]
-    }
-  ]
-}
-\`\`\`
+KPIs (Key Performance Indicators) are calculated metrics for indexes.
 
 ## Get KPIs for Indexes
 
 \`GET /beta/kpis/indexes\`
 
-Similar structure to coins, but for index-level metrics.
-
 **Query Parameters:**
-- \`kpi_id\` (integer)
-- \`index_id\` (integer)
-- \`time_range\` (enum)
-- \`limit\`, \`offset\`, \`latest_only\`, \`group_by_index\`
+- \`kpi_id\` (integer) - Filter by specific KPI
+- \`index_id\` (integer) - Filter by specific index
+- \`time_range\` (enum) - '24H', '1W', '1M', '3M', '6M', '1Y', 'overall'
+- \`limit\` (integer, max 100) - Results per page (default: 100)
+- \`offset\` (integer) - Pagination offset
+- \`latest_only\` (boolean) - Only latest data (default: true)
+- \`group_by_index\` (boolean) - Group by index (default: false)
 
 ## Common KPI Types
 
@@ -811,7 +739,6 @@ Similar structure to coins, but for index-level metrics.
 
 ## Use Cases
 
-- Analyze coin mindshare trends over time
 - Compare index performance metrics
 - Track market attention and social metrics
 - Monitor market cap changes
@@ -819,45 +746,13 @@ Similar structure to coins, but for index-level metrics.
 
     "indexy://docs/mindshare": `# Mindshare Data
 
-Mindshare represents the "market attention" or popularity of coins, indexes, and blockchains.
-
-## Get Mindshare for Coins
-
-\`GET /beta/mindshare/coins\`
-
-**Query Parameters:**
-- \`coin_id\` (integer) - Filter by specific coin
-- \`time_range\` (enum) - '24H', '1W', '1M', '3M', '6M', '1Y', 'overall'
-- \`limit\` (integer) - Results per page
-- \`offset\` (integer) - Pagination offset
-- \`latest_only\` (boolean) - Only latest data (default: true)
-
-**Response:**
-\`\`\`json
-{
-  "success": true,
-  "mindshare_coins": [
-    {
-      "id": 456,
-      "coin_id": 1,
-      "coin_name": "Bitcoin",
-      "coin_symbol": "BTC",
-      "value": 85.5,
-      "time_range": "24H",
-      "date": "2026-01-30T...",
-      "chains": [ /* blockchains */ ]
-    }
-  ],
-  "pagination": { /* ... */ },
-  "metadata": { /* ... */ }
-}
-\`\`\`
+Mindshare represents the "market attention" or popularity of indexes and blockchains.
 
 ## Get Mindshare for Indexes
 
 \`GET /beta/mindshare/indexes\`
 
-Similar to coins, but for index-level mindshare metrics.
+Mindshare scores for cryptocurrency indexes.
 
 ## Get Mindshare for Chains
 
@@ -1227,60 +1122,19 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         }
       },
       {
-        name: "get_kpis_coins",
-        description: "Get KPI (Key Performance Indicator) data for coins. Includes metrics like mindshare, market cap, TVL, etc.",
+        name: "get_highlights_indexes",
+        description: "Get top/highlighted indexes from the Indexy dashboard. Returns featured indexes ranked by position, with metric value and market cap change. Use category to filter by highlight type.",
         inputSchema: {
           type: "object",
           properties: {
-            kpi_id: {
-              type: "number",
-              description: "Filter by specific KPI ID (optional)"
-            },
-            coin_id: {
-              type: "number",
-              description: "Filter by specific coin ID (optional)"
-            },
-            time_range: {
+            category: {
               type: "string",
-              enum: ["24H", "1W", "1M", "3M", "6M", "1Y", "overall"],
-              description: "Time range for the data (optional)"
+              description: "Filter by highlight category (optional). Available categories are returned in the response metadata."
             },
             limit: {
               type: "number",
-              description: "Results per page (default: 100)",
-              default: 100,
-              minimum: 1,
-              maximum: 100
-            },
-            offset: {
-              type: "number",
-              description: "Pagination offset (default: 0)",
-              default: 0,
-              minimum: 0
-            },
-            latest_only: {
-              type: "boolean",
-              description: "Only return latest data (default: true)",
-              default: true
-            },
-            group_by_coin: {
-              type: "boolean",
-              description: "Group results by coin (default: false)",
-              default: false
-            }
-          }
-        }
-      },
-      {
-        name: "get_mindshare_coins",
-        description: "Get mindshare (market attention/popularity) data for coins",
-        inputSchema: {
-          type: "object",
-          properties: {
-            limit: {
-              type: "number",
-              description: "Results per page (default: 20, max: 100)",
-              default: 20,
+              description: "Results per page (default: 10, max: 100)",
+              default: 10,
               minimum: 1,
               maximum: 100
             },
@@ -1434,39 +1288,15 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         };
       }
 
-      case "get_kpis_coins": {
-        const { kpi_id, coin_id, time_range, limit = 100, offset = 0, latest_only = true, group_by_coin = false } = args;
+      case "get_highlights_indexes": {
+        const { category, limit = 10, offset = 0 } = args;
         const params = new URLSearchParams();
-        if (kpi_id) params.append('kpi_id', kpi_id);
-        if (coin_id) params.append('coin_id', coin_id);
-        if (time_range) params.append('time_range', time_range);
-        params.append('limit', limit);
-        params.append('offset', offset);
-        params.append('latest_only', latest_only);
-        params.append('group_by_coin', group_by_coin);
-
-        const result = await indexyApiRequest(
-          `/beta/kpis/coins?${params.toString()}`,
-          "GET"
-        );
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify(result, null, 2)
-            }
-          ]
-        };
-      }
-
-      case "get_mindshare_coins": {
-        const { limit = 20, offset = 0 } = args;
-        const params = new URLSearchParams();
+        if (category) params.append('category', category);
         params.append('limit', limit);
         params.append('offset', offset);
 
         const result = await indexyApiRequest(
-          `/beta/mindshare/coins?${params.toString()}`,
+          `/beta/highlights/indexes?${params.toString()}`,
           "GET"
         );
         return {

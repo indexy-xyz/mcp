@@ -108,6 +108,7 @@ The server exposes the following tools to AI agents:
 | Tool | Description |
 |------|-------------|
 | `get_public_index` | Get details of any public index by ID |
+| `get_highlights_indexes` | Get top/highlighted indexes from the Indexy dashboard |
 
 ### Profile
 
