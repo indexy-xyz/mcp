@@ -109,6 +109,8 @@ The server exposes the following tools to AI agents:
 |------|-------------|
 | `get_public_index` | Get details of any public index by ID |
 | `get_highlights_indexes` | Get top/highlighted indexes from the Indexy dashboard |
+| `get_kpis_indexes` | Get KPI data for indexes (mindshare, market cap, TVL, etc.) |
+| `get_mindshare_indexes` | Get mindshare scores for indexes, sorted by 7-day score |
 
 ### Profile
 

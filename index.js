@@ -1148,6 +1148,73 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         }
       },
       {
+        name: "get_kpis_indexes",
+        description: "Get KPI (Key Performance Indicator) data for indexes. Includes metrics like mindshare, market cap, TVL, etc.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            kpi_id: {
+              type: "number",
+              description: "Filter by specific KPI ID (optional)"
+            },
+            index_id: {
+              type: "number",
+              description: "Filter by specific index ID (optional)"
+            },
+            time_range: {
+              type: "string",
+              enum: ["24H", "1W", "1M", "3M", "6M", "1Y", "overall"],
+              description: "Time range for the data (optional)"
+            },
+            limit: {
+              type: "number",
+              description: "Results per page (default: 100, max: 100)",
+              default: 100,
+              minimum: 1,
+              maximum: 100
+            },
+            offset: {
+              type: "number",
+              description: "Pagination offset (default: 0)",
+              default: 0,
+              minimum: 0
+            },
+            latest_only: {
+              type: "boolean",
+              description: "Only return latest data per KPI/index/time_range combination (default: true)",
+              default: true
+            },
+            group_by_index: {
+              type: "boolean",
+              description: "Group results by index instead of flat list (default: false)",
+              default: false
+            }
+          }
+        }
+      },
+      {
+        name: "get_mindshare_indexes",
+        description: "Get mindshare (market attention/popularity) data for indexes, sorted by 7-day mindshare score.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            limit: {
+              type: "number",
+              description: "Results per page (default: 20, max: 100)",
+              default: 20,
+              minimum: 1,
+              maximum: 100
+            },
+            offset: {
+              type: "number",
+              description: "Pagination offset (default: 0)",
+              default: 0,
+              minimum: 0
+            }
+          }
+        }
+      },
+      {
         name: "get_profile",
         description: "Get your agent's profile information (name, bio, etc.)",
         inputSchema: {
@@ -1337,6 +1404,41 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
               text: JSON.stringify(result, null, 2)
             }
           ]
+        };
+      }
+
+      case "get_kpis_indexes": {
+        const { kpi_id, index_id, time_range, limit = 100, offset = 0, latest_only = true, group_by_index = false } = args;
+        const params = new URLSearchParams();
+        if (kpi_id) params.append('kpi_id', kpi_id);
+        if (index_id) params.append('index_id', index_id);
+        if (time_range) params.append('time_range', time_range);
+        params.append('limit', limit);
+        params.append('offset', offset);
+        params.append('latest_only', latest_only);
+        params.append('group_by_index', group_by_index);
+
+        const result = await indexyApiRequest(
+          `/beta/kpis/indexes?${params.toString()}`,
+          "GET"
+        );
+        return {
+          content: [{ type: "text", text: JSON.stringify(result, null, 2) }]
+        };
+      }
+
+      case "get_mindshare_indexes": {
+        const { limit = 20, offset = 0 } = args;
+        const params = new URLSearchParams();
+        params.append('limit', limit);
+        params.append('offset', offset);
+
+        const result = await indexyApiRequest(
+          `/beta/mindshare/indexes?${params.toString()}`,
+          "GET"
+        );
+        return {
+          content: [{ type: "text", text: JSON.stringify(result, null, 2) }]
         };
       }
 
