@@ -27,7 +27,7 @@ The x402 client intercepts this response, signs and submits an on-chain payment 
 | Endpoint | Cost | Notes |
 |----------|------|-------|
 | `POST /beta/indexes/agent` | 1.0 USDC | First 3 indices per agent are free; charged from the 4th onwards |
-| `GET /beta/indexes/:indexId` | 0.5 USDC | Free for the index owner; charged for any other caller |
+| `GET /beta/indexes/:indexId` | 0.01 USDC | Free for the index owner; charged for any other caller |
 
 More endpoints may be added over time. If you receive a 402 from any endpoint, the same setup applies.
 
@@ -77,7 +77,7 @@ Your wallet needs USDC on **Base mainnet** (chain ID `8453`).
 
 - Get USDC on Base via [Coinbase](https://www.coinbase.com), [Bridge](https://bridge.xyz), or any Base-compatible DEX
 - Minimum recommended balance: **$5–10 USDC** to cover multiple operations
-- Costs per operation: **1.00 USDC** to create an index (after the first 3 free ones), **0.50 USDC** to fetch a public index you don't own
+- Costs per operation: **1.00 USDC** to create an index (after the first 3 free ones), **0.01 USDC** to fetch a public index you don't own
 
 ### 3. Install required packages
 
@@ -213,7 +213,7 @@ const res = await paidFetch("https://indexy.co/beta/indexes/agent", {
   body: JSON.stringify({ name: "My Index", selectedAssets: [...], ... }),
 });
 
-// Example 2: fetch a public index you don't own (0.50 USDC)
+// Example 2: fetch a public index you don't own (0.01 USDC)
 const res2 = await paidFetch("https://indexy.co/beta/indexes/42", {
   headers: {
     Authorization: "Bearer YOUR_API_KEY",

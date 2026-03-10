@@ -15,7 +15,7 @@
  *
  * x402 PAYMENT SUPPORT:
  * When using Web3 authentication, the MCP automatically handles x402 payments.
- * Some endpoints require micropayments (e.g., $0.01 USDC for KPIs).
+ * Pricing: create_index = $1.00 USDC (first 3 free per agent), get_index = $0.01 USDC (free for owner), list_indexes = $0.01 USDC per result.
  * Ensure your wallet has USDC on Base mainnet.
  * Payments are handled automatically - no manual intervention needed!
  *
@@ -380,10 +380,22 @@ Authorization: Bearer <your-api-key>
 - \`PUT /beta/profile\` - Update your profile (name/bio)
 
 ### Public Data
+- \`GET /beta/indexes\` - List all public indexes
+- \`GET /beta/indexes/:id\` - Get any public index by ID
 - \`GET /beta/highlights/indexes\` - Get highlighted/featured indexes
 - \`GET /beta/kpis/indexes\` - Get KPI data for indexes
 - \`GET /beta/mindshare/indexes\` - Get mindshare data for indexes
 - \`GET /beta/mindshare/chains\` - Get mindshare data for blockchains
+
+## Pricing (x402 on Base mainnet, paid in USDC)
+
+| Endpoint | Price | Notes |
+|---|---|---|
+| \`POST /beta/indexes/agent\` (create) | $1.00 USDC | First 3 indices per agent are free |
+| \`GET /beta/indexes/:id\` (public) | $0.01 USDC | Free for the index owner |
+| \`GET /beta/indexes\` (list all) | $0.01 USDC per result | Charged per index returned |
+
+Payments are handled automatically by the MCP client using your configured wallet.
 
 ## Index Category
 
@@ -395,6 +407,8 @@ All indices created via this API are marked as \`index_category = 'agentic'\`.
 ## Endpoint
 
 \`POST /beta/indexes/agent\`
+
+**x402 Payment:** $1.00 USDC — first 3 indices per agent are free, charged from the 4th onwards. Payment is handled automatically.
 
 ## Request Body
 
@@ -654,20 +668,33 @@ These are read-only endpoints that don't require special permissions beyond auth
 
 \`GET /beta/indexes\`
 
-List all public indices with optional filtering.
+List all public indices with optional filtering and pagination. Returns full coin composition for each index.
+
+**x402 Payment:** $0.01 USDC per result returned. Charged as \`$0.01 × number_of_results\`. Use small \`limit\` values to control cost.
 
 **Query Parameters:**
 - \`featured\` (boolean) - Filter by featured status
-- \`weights_type\` (string) - Filter by weights type: market_caps, custom
-- \`creator_id\` (integer) - Filter by creator
+- \`weights_type\` (string) - Filter by weights type: \`market_caps\`, \`equal_weight\`, \`custom\`
+- \`creator_id\` (integer) - Filter by creator ID
 - \`limit\` (integer, max 100) - Results per page (default: 20)
-- \`offset\` (integer) - Pagination offset
+- \`offset\` (integer) - Pagination offset (default: 0)
 
 **Response:**
 \`\`\`json
 {
   "success": true,
-  "indexes": [ /* array of indexes with coins */ ],
+  "indexes": [
+    {
+      "id": 1,
+      "name": "DeFi Leaders",
+      "weights_type": "custom",
+      "featured": true,
+      "current_bps": 105.5,
+      "index_performance_24h": 1.23,
+      "total_volume_24h": 50000,
+      "coins": [ { "id": 1, "symbol": "ETH", "weight": 50, "chains": [...] } ]
+    }
+  ],
   "pagination": { "total": 100, "limit": 20, "offset": 0, "has_more": true },
   "metadata": { "last_updated": "...", "featured_count": 10 }
 }
@@ -678,6 +705,8 @@ List all public indices with optional filtering.
 \`GET /beta/indexes/:id\`
 
 Get detailed information about any public index.
+
+**x402 Payment:** $0.01 USDC — free if you are the index owner.
 
 **Response:**
 \`\`\`json
@@ -935,7 +964,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
     tools: [
       {
         name: "create_index",
-        description: "Create a new cryptocurrency index. The index will be marked as 'agentic' automatically.",
+        description: "Create a new cryptocurrency index. The index will be marked as 'agentic' automatically. x402 payment: $1.00 USDC — first 3 indices per agent are free, charged from the 4th onwards.",
         inputSchema: {
           type: "object",
           properties: {
@@ -1107,8 +1136,43 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         }
       },
       {
+        name: "get_all_indexes",
+        description: "List all public indexes with optional filtering and pagination. Returns indexes with their coin composition. x402 payment: $0.01 USDC per result returned. Costs x402 payment per result returned (price_per_item × items_returned).",
+        inputSchema: {
+          type: "object",
+          properties: {
+            featured: {
+              type: "boolean",
+              description: "Filter by featured status (optional)"
+            },
+            weights_type: {
+              type: "string",
+              enum: ["market_caps", "equal_weight", "custom"],
+              description: "Filter by weights type (optional)"
+            },
+            creator_id: {
+              type: "number",
+              description: "Filter by creator ID (optional)"
+            },
+            limit: {
+              type: "number",
+              description: "Results per page (default: 20, max: 100)",
+              default: 20,
+              minimum: 1,
+              maximum: 100
+            },
+            offset: {
+              type: "number",
+              description: "Pagination offset (default: 0)",
+              default: 0,
+              minimum: 0
+            }
+          }
+        }
+      },
+      {
         name: "get_public_index",
-        description: "Get details of any public index by ID (not restricted to your own indices)",
+        description: "Get details of any public index by ID (not restricted to your own indices). x402 payment: $0.01 USDC — free if you are the index owner.",
         inputSchema: {
           type: "object",
           properties: {
@@ -1326,6 +1390,29 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const { indexId } = args;
         const result = await indexyApiRequest(
           `/beta/indexes/agent/${indexId}`,
+          "GET"
+        );
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(result, null, 2)
+            }
+          ]
+        };
+      }
+
+      case "get_all_indexes": {
+        const { featured, weights_type, creator_id, limit = 20, offset = 0 } = args;
+        const params = new URLSearchParams();
+        if (typeof featured === "boolean") params.append('featured', featured);
+        if (weights_type) params.append('weights_type', weights_type);
+        if (creator_id) params.append('creator_id', creator_id);
+        params.append('limit', limit);
+        params.append('offset', offset);
+
+        const result = await indexyApiRequest(
+          `/beta/indexes?${params.toString()}`,
           "GET"
         );
         return {
